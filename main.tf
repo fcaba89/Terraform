@@ -193,8 +193,6 @@ resource "aws_s3_bucket_public_access_block" "fjc-buckets" {
   restrict_public_buckets = false
 }
 
-
-
 ################################ EC2 #################################
 resource "aws_instance" "fcserver1" {
     ami = "ami-0a3c3a20c09d6f377"
@@ -202,19 +200,11 @@ resource "aws_instance" "fcserver1" {
     associate_public_ip_address = true  # Allocate a Public IPv4 address
     vpc_security_group_ids = [aws_security_group.fcsg.id]
     subnet_id = aws_subnet.sub1.id
-    user_data = base64encode(file("userdata.sh"))
+    user_data = base64encode(file("userdata.sh"))    
 
-     tags = {
+    tags = {
         Name = "fcserver1"
     }
-}
-
-output "public_ip1" {
-  value = aws_instance.fcserver1.public_ip
-}
-
-output "public_dns1" {
-  value = aws_instance.fcserver1.public_dns
 }
 
 resource "aws_instance" "fcserver2" {
@@ -230,65 +220,101 @@ resource "aws_instance" "fcserver2" {
     }
 }
 
-output "public_ip2" {
-  value = aws_instance.fcserver2.public_ip
-}
-
-output "public_dns2" {
-  value = aws_instance.fcserver2.public_dns
-}
-
-
 ################################ create alb #################################
 resource "aws_lb" "fclb" {
-name = "fclb"
-internal = false
-load_balancer_type = "application"
+  name               = "fclb"
+  internal           = false
+  load_balancer_type = "application"
 
-security_groups = [aws_security_group.fcsg.id]
-subnets = [aws_subnet.sub1.id, aws_subnet.sub2.id]
+  security_groups = [aws_security_group.fcsg.id]
+  subnets         = [aws_subnet.sub1.id, aws_subnet.sub2.id]
 }
 
 resource "aws_lb_target_group" "fctg" {
-name = "fctg"
-port = 80
-protocol = "HTTP"
-vpc_id = aws_vpc.fcvpc.id
+  name        = "fctg"
+  port        = 80
+  protocol    = "HTTP"
+  vpc_id      = aws_vpc.fcvpc.id
 
-health_check {
-    path = "/"
-    protocol = "HTTP"
-    matcher = "200"
-    interval = 5
-    timeout = 2
+  health_check {
+    path                = "/"
+    protocol            = "HTTP"
+    matcher             = "200"
+    interval            = 5
+    timeout             = 2
     unhealthy_threshold = 2
-    healthy_threshold = 2
-    }
+    healthy_threshold   = 2
+  }
 }
 
 resource "aws_lb_target_group_attachment" "attach1" {
-    target_group_arn = aws_lb_target_group.fctg.arn
-    target_id = aws_instance.fcserver1.id
-    port = 80
+  target_group_arn = aws_lb_target_group.fctg.arn
+  target_id        = aws_instance.fcserver1.id
+  port             = 80
 }
 
 resource "aws_lb_target_group_attachment" "attach2" {
-    target_group_arn = aws_lb_target_group.fctg.arn
-    target_id = aws_instance.fcserver2.id
-    port = 80
+  target_group_arn = aws_lb_target_group.fctg.arn
+  target_id        = aws_instance.fcserver2.id
+  port             = 80
 }
 
 resource "aws_lb_listener" "fclistener" {
-    load_balancer_arn = aws_lb.fclb.arn
-    port = 80
-    protocol = "HTTP"
+  load_balancer_arn = aws_lb.fclb.arn
+  port              = 80
+  protocol          = "HTTP"
 
-    default_action {
-        type = "forward"
-        target_group_arn = aws_lb_target_group.fctg.arn
-    }
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.fctg.arn
+  }
 }
 
 output "loadbalancerdns" {
-    value = aws_lb.fclb.dns_name
+  value = aws_lb.fclb.dns_name
+}
+
+################################ CloudWatch #################################
+resource "aws_cloudwatch_log_group" "fc_log_group" {
+  name = "fc_logs"
+}
+
+resource "aws_cloudwatch_log_stream" "fc_log_stream_instance1" {
+  name           = "fcserver1"
+  log_group_name = aws_cloudwatch_log_group.fc_log_group.name
+}
+
+resource "aws_cloudwatch_log_stream" "fc_log_stream_instance2" {
+  name           = "fcserver2"
+  log_group_name = aws_cloudwatch_log_group.fc_log_group.name
+}
+
+resource "aws_cloudwatch_log_group" "fc_log_group_alb" {
+  name = "alb_log_group"
+}
+
+resource "aws_cloudwatch_log_stream" "fc_log_stream_alb" {
+  name           = "alb"
+  log_group_name = aws_cloudwatch_log_group.fc_log_group_alb.name
+}
+
+resource "aws_cloudwatch_log_subscription_filter" "fc_log_filter_instance1" {
+  name            = "fcserver1"
+  log_group_name  = aws_cloudwatch_log_group.fc_log_group.name
+  filter_pattern  = ""
+  destination_arn = aws_cloudwatch_log_stream.fc_log_stream_instance1.arn
+}
+
+resource "aws_cloudwatch_log_subscription_filter" "fc_log_filter_instance2" {
+  name            = "fcserver2"
+  log_group_name  = aws_cloudwatch_log_group.fc_log_group.name
+  filter_pattern  = ""
+  destination_arn = aws_cloudwatch_log_stream.fc_log_stream_instance2.arn
+}
+
+resource "aws_cloudwatch_log_subscription_filter" "fc_log_filter_alb" {
+  name            = "alb"
+  log_group_name  = aws_cloudwatch_log_group.fc_log_group_alb.name
+  filter_pattern  = ""
+  destination_arn = aws_cloudwatch_log_stream.fc_log_stream_alb.arn
 }
