@@ -301,20 +301,23 @@ resource "aws_cloudwatch_log_stream" "fc_log_stream_alb" {
 resource "aws_cloudwatch_log_subscription_filter" "fc_log_filter_instance1" {
   name            = "fcserver1"
   log_group_name  = aws_cloudwatch_log_group.fc_log_group.name
-  filter_pattern  = ""
+  filter_pattern  = "[ERROR, WARNING]"
   destination_arn = aws_cloudwatch_log_stream.fc_log_stream_instance1.arn
+  role_arn = "arn:aws:iam::866934333672:user/franky"
 }
 
 resource "aws_cloudwatch_log_subscription_filter" "fc_log_filter_instance2" {
   name            = "fcserver2"
   log_group_name  = aws_cloudwatch_log_group.fc_log_group.name
-  filter_pattern  = ""
+  filter_pattern  = "[ERROR, WARNING]"
   destination_arn = aws_cloudwatch_log_stream.fc_log_stream_instance2.arn
+  role_arn = "arn:aws:iam::866934333672:user/franky"
 }
 
 resource "aws_cloudwatch_log_subscription_filter" "fc_log_filter_alb" {
   name            = "alb"
   log_group_name  = aws_cloudwatch_log_group.fc_log_group_alb.name
-  filter_pattern  = ""
+  filter_pattern  = "[ERROR, WARNING]"
   destination_arn = aws_cloudwatch_log_stream.fc_log_stream_alb.arn
+  role_arn = "arn:aws:iam::866934333672:user/franky"
 }
